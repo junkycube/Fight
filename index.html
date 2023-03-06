@@ -33,6 +33,16 @@
 	height: calc(100%);
 }
 
+#enemy {
+	width: 580px;
+	height: 350px;
+	image-rendering: pixelated;
+	clip-path: inset(0px 290px 0px 0px);
+	position: absolute;
+	top: 5%;
+	right: 5%;
+}
+
 body {
 	font-family: calibri;
 	font-size: 12px;
@@ -80,7 +90,7 @@ function main(val, move) {
 		if (combatState < 2) {
 			addLogText('You '+moveList[getMoveData].text+'.');
 		} else if (combatState > 1) {
-			addLogText('The Enemy '+moveList[getMoveData].text+'s.');
+			addLogText('Jerry the Butcher '+moveList[getMoveData].text+'s.');
 		}
 	}
 	combatState = val;
@@ -130,10 +140,9 @@ function enemyReacts() {
 </head>
 <body>
 <canvas id="canvas"></canvas>
-<div id=playerSkills>
-	
-</div>
+<div id=playerSkills></div>
 <div id=log>You think you can beat me punk? Give it your best shot.</div>
+<img id="enemy" src="Jerrythebutcher.png">
 </body>
 
 <script type="text/javascript">
