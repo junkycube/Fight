@@ -23,6 +23,7 @@
 	top: 0px;
 	left: calc(50% - 111px);
 	padding: 0px 10px;
+	overflow: hidden;
 }
 
 #canvas {
@@ -33,50 +34,77 @@
 	height: calc(100%);
 }
 
-#enemy {
-	width: 580px;
-	height: 350px;
-	image-rendering: pixelated;
-	clip-path: inset(0px 290px 0px 0px);
-	position: absolute;
-	top: 5%;
-	right: 5%;
-}
-
 body {
 	font-family: calibri;
 	font-size: 12px;
 }
+
+#playerStats {
+	text-align: right;
+	position: absolute;
+	right: calc(50% + 121px);
+}
+
+#enemyStats {
+	position: absolute;
+	left: calc(50% + 121px);
+}
+
+#playerSkills {
+	position: absolute;
+}
 </style>
 <script type="text/javascript">
 
-moveList = [
+let player = {
+	'health':5,
+	'stamina':100
+}
+let enemy = {
+	'health':5,
+	'stamina':100
+}
+let floatingDamage = 0;
+let combatState = -1; //-1 = player initiating, -2 = player reacting, 1 = enemy initiating, 2 = enemy reacting
+let moveList = [
 	{
-		'name':'attack',
-		'stateUsable':[0],
-		'stateResolve':3,
-		'text':['attack']
+		'name':'Jab',
+		'stateUsable':[-1],
+		'stateResolve':2,
+		'text':['attack'],
+		'eText':['attacks'],
+		'stamina':20,
+		'type':'attack',
+		'damage':1,
 	},
 	{
 		'name':'block',
-		'stateUsable':[1],
-		'stateResolve':0,
-		'text':['block']
+		'stateUsable':[-2],
+		'stateResolve':-1,
+		'text':['block'],
+		'eText':['blocks'],
+		'stamina':5,
+		'type':'defense'
 	},
 	{
 		'name':'dodge',
-		'stateUsable':[1],
-		'stateResolve':0,
-		'text':['dodge']
+		'stateUsable':[-2],
+		'stateResolve':-1,
+		'text':['dodge'],
+		'eText':['dodges'],
+		'stamina':10,
+		'type':'defense'
 	},
 	{
 		'name':'pass',
-		'stateUsable':[0, 1],
-		'stateResolve':2,
-		'text':['pass']
+		'stateUsable':[-1, -2],
+		'stateResolve':1,
+		'text':['pass'],
+		'eText':['passes'],
+		'stamina':-5,
+		'type':'pass'
 	},
 ];
-combatState = 0 //0 = player initiating, 1 = player reacting, 2 = enemy initiating, 3 = enemy reacting
 	
 function main(val, move) {
 	if (move != null) {
@@ -87,28 +115,62 @@ function main(val, move) {
 				break;
 			}
 		}
-		if (combatState < 2) {
+		if (combatState < 0) {
 			addLogText('You '+moveList[getMoveData].text+'.');
-		} else if (combatState > 1) {
-			addLogText('Jerry the Butcher '+moveList[getMoveData].text+'s.');
+			if (moveList[getMoveData].type == 'defense') floatingDamage = 0;
+			if (floatingDamage > 0) {
+				addLogText('Jerry the Butcher deals '+floatingDamage+' damage.');
+				player.health -= floatingDamage;
+				floatingDamage = 0;
+			}
+			player.stamina -= moveList[getMoveData].stamina;
+			enemy.stamina += 5;
+			if (moveList[getMoveData].type == 'attack') floatingDamage = moveList[getMoveData].damage;
+		} else if (combatState > 0) {
+			addLogText('Jerry the Butcher '+moveList[getMoveData].eText+'.');
+			if (moveList[getMoveData].type == 'defense') floatingDamage = 0;
+			if (floatingDamage > 0) {
+				addLogText('You deal '+floatingDamage+' damage.');
+				enemy.health -= floatingDamage;
+				floatingDamage = 0;
+			}
+			enemy.stamina -= moveList[getMoveData].stamina;
+			player.stamina += 5;
+			if (moveList[getMoveData].type == 'attack') floatingDamage = moveList[getMoveData].damage;
+		}
+		if (player.stamina > 100) {
+			player.stamina = 100;
+		} else if (player.stamina < 0) {
+			player.stamina = 0;
+		}
+		if (enemy.stamina > 100) {
+			enemy.stamina = 100;
+		} else if (enemy.stamina < 0) {
+			enemy.stamina = 0;
 		}
 	}
+	updateStats();
 	combatState = val;
 	updateSkills();
-	if (combatState > 1) {
+	if (combatState > 0) {
 		enemyReacts();
 	}
 }
 
 function updateSkills() {
 	document.getElementById('playerSkills').innerHTML = '';
-	if (combatState < 2) {
+	if (combatState < 0) {
 		for (i = 0; i < moveList.length; i++) {
-			if (moveList[i].stateUsable.indexOf(combatState) != -1) {
+			if (moveList[i].stateUsable.indexOf(combatState) != -1 & moveList[i].stamina <= player.stamina) {
 				generateMove(moveList[i].stateResolve, moveList[i].name);
 			}
 		}
 	}
+}
+
+function updateStats() {
+	document.getElementById('playerStats').innerHTML = player.health+' :Health<br>'+player.stamina+' :Stamina';
+	document.getElementById('enemyStats').innerHTML = 'Health: '+enemy.health+'<br>Stamina: '+enemy.stamina;
 }
 
 function updateCombatState(val) {
@@ -125,29 +187,37 @@ function addLogText(entry) {
 }
 
 function enemyReacts() {
-	if (combatState == 2) {
+	if (combatState > 0) {
+		let moveChoices = [];
+		for (i = 0; i < moveList.length; i++) {
+			if (moveList[i].stateUsable.indexOf(combatState * -1) != -1 & moveList[i].stamina <= enemy.stamina) {
+				moveChoices.push(moveList[i]);
+			}
+		}
+		let randomMove = roll(0, moveChoices.length);
 		setTimeout(function() {
-			main(1, 'attack');
-		}, 1000);
-	} else if (combatState == 3) {
-		setTimeout(function() {
-			main(2, 'dodge');
-		}, 1000);
+			main((moveChoices[randomMove].stateResolve * -1), moveChoices[randomMove].name);
+		}, 750);
 	}
+}
+
+function roll(min, max) {
+	return Math.floor(Math.random() * (max - min)) + min;
 }
 
 </script>
 </head>
 <body>
 <canvas id="canvas"></canvas>
+<div id=playerStats></div>
+<div id="enemyStats"></div>
 <div id=playerSkills></div>
 <div id=log>You think you can beat me punk? Give it your best shot.</div>
-<img id="enemy" src="blob/main/JerryTheButcher.png">
 </body>
 
 <script type="text/javascript">
 	
-main(0, null);
+main(-1, null);
 
 </script>
 
